@@ -5,6 +5,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecsPatterns from "aws-cdk-lib/aws-ecs-patterns";
+import * as ecr from 'aws-cdk-lib/aws-ecr';
 
 
 export class CdkEdaWorkshopStack extends cdk.Stack {
@@ -12,12 +13,13 @@ export class CdkEdaWorkshopStack extends cdk.Stack {
     super(scope, id, props);
 
     const cidr = '10.0.0.0/16';
+    const ecrMonolithRepoName = "eda-sample-coffee-app";
 
     const vpc = new ec2.Vpc(this, 'EdaWorkshopVpc', {
       vpcName: 'vpc-eda-workshop',
       cidr: cidr,
       natGateways: 1,
-      maxAzs: 3,
+      maxAzs: 2,
       enableDnsHostnames: true,
       enableDnsSupport: true,
       subnetConfiguration: [
@@ -92,19 +94,13 @@ export class CdkEdaWorkshopStack extends cdk.Stack {
     });
 
     loadBalancedFargateService.targetGroup.configureHealthCheck({
-      path: "/custom-health-path",
+      path: "/",
     });
 
-    // new ecs_patterns.ApplicationLoadBalancedFargateService(this, "EdaFargateSvc", {
-    //   cluster: cluster,
-    //   cpu: 512,
-    //   desiredCount: 3,
-    //   taskImageOptions: { image: ecs.ContainerImage.fromRegistry("amazon/amazon-ecs-sample") },
-    //   taskSubnets: {
-    //     subnets: [ec2.Subnet.fromSubnetId(this, 'subnet', )]
-    //   }
-    //   memoryLimitMiB: 1024,
-    //   publicLoadBalancer: true
-    // });
+    const ecrMonolithRepo = new ecr.Repository(this, "EdaEcrRepository", {
+      repositoryName: ecrMonolithRepoName,
+    });
+    
+
   }
 }
