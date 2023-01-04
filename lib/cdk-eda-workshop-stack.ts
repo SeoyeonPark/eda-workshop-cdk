@@ -1,21 +1,33 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecsPatterns from "aws-cdk-lib/aws-ecs-patterns";
 import * as ecr from 'aws-cdk-lib/aws-ecr';
+// import * as sqs from 'aws-cdk-lib/aws-sqs';
 
+export class EdaWSNetworkStack extends cdk.Stack {
+  public readonly vpc: ec2.Vpc;
+  public readonly repository: ecr.Repository;
 
-export class CdkEdaWorkshopStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const cidr = '10.0.0.0/16';
-    const ecrMonolithRepoName = "eda-sample-coffee-app";
+    console.log('Account ID: ', cdk.Stack.of(this).account);
+    console.log('Region: ', cdk.Stack.of(this).region);
+    console.log("Deploying VPC, Subnets, ECR and Database...");
 
-    const vpc = new ec2.Vpc(this, 'EdaWorkshopVpc', {
+    const cidr = '10.0.0.0/16';
+
+    // ECR
+    this.repository = new ecr.Repository(this, "EdaEcrRepository", {
+      repositoryName: "eda-sample-coffee-app",
+    });
+    
+
+    // VPC, Subnet, Nat Gateway, Internet Gateway, route tables
+    this.vpc = new ec2.Vpc(this, 'EdaWorkshopVpc', {
       vpcName: 'vpc-eda-workshop',
       cidr: cidr,
       natGateways: 1,
@@ -31,7 +43,7 @@ export class CdkEdaWorkshopStack extends cdk.Stack {
         {
           cidrMask: 24,
           name: 'private-ecs',
-          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS
+          subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
         },
         {
           cidrMask: 28,
@@ -41,55 +53,75 @@ export class CdkEdaWorkshopStack extends cdk.Stack {
       ],
     });
 
+    // Aurora Security Group, Cluster
     const auroraSecurityGroup = new ec2.SecurityGroup(this, 'aurora-sg', {
-      vpc: vpc,
+      vpc: this.vpc,
       securityGroupName: 'aurora-SG',
       allowAllOutbound: true
     });
     auroraSecurityGroup.addIngressRule(ec2.Peer.ipv4(cidr), ec2.Port.tcp(3306), 'aurora mysql inbound')
 
+
     const auroraCluster = new rds.DatabaseCluster(this, 'EdaSampleDB', {
-      defaultDatabaseName: 'edasample',
+      defaultDatabaseName: 'db-eda-coffee',
       engine: rds.DatabaseClusterEngine.auroraMysql({version: rds.AuroraMysqlEngineVersion.VER_3_02_1}),
       credentials: rds.Credentials.fromGeneratedSecret('edasample', {
-        secretName: 'eda-sample-order',
+        secretName: 'db-secret-eda-ws-coffee',
       }),
       instanceProps: {
         instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE3, ec2.InstanceSize.MEDIUM),
         vpcSubnets: {
           subnetType: ec2.SubnetType.PRIVATE_ISOLATED
         },
-        vpc,
+        vpc: this.vpc,
         publiclyAccessible: false,
         securityGroups: [
           auroraSecurityGroup
         ],
         
       },
-    })
-
-    // ECS Task, application 넣기
-    // CodeBuild, CodeDeploy
-
-    const cluster = new ecs.Cluster(this, "EdaEcsCluster", {
-        vpc: vpc
     });
+  }
+}
+
+// Shrae resources between stacks
+interface EdaWsEcsStackProps extends cdk.StackProps {
+  vpc: ec2.Vpc;
+  repository: ecr.Repository;
+}
+
+export class EdaWSEcsStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props: EdaWsEcsStackProps) {
+    super(scope, id, props);
+
+    console.log('Account ID: ', cdk.Stack.of(this).account);
+    console.log('Region: ', cdk.Stack.of(this).region);
+    console.log("Deploying ECS Cluster, Task Definition, ALB...");
+
+    const {vpc, repository} = props;
+
+    // ECS Cluster, Task Definition, ALB
+    const cluster = new ecs.Cluster(this, "EdaEcsCluster", {
+        vpc: vpc,
+        clusterName: 'ecs-cluster-coffee'
+    });
+
 
     const loadBalancedFargateService = new ecsPatterns.ApplicationLoadBalancedFargateService(this, 'EdaWSFargateSvc', {
       cluster,
+      serviceName: 'ecs-svc-eda-coffee-app',
+      loadBalancerName: 'lb-eda-ws-coffee',
       memoryLimitMiB: 1024,
       cpu: 512,
       desiredCount: 2,
       taskImageOptions: {
-        image: ecs.ContainerImage.fromRegistry("amazon/amazon-ecs-sample"),
+        image: ecs.ContainerImage.fromEcrRepository(repository),
         environment: {
-          TEST_ENVIRONMENT_VARIABLE1: "test environment variable 1 value",
-          TEST_ENVIRONMENT_VARIABLE2: "test environment variable 2 value",
+          SPRING_PROFILES_ACTIVE: "dev",
         },
       },
       taskSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
-        // subnets: [ec2.Subnet.fromSubnetId(this, 'private-ecs', 'VpcISOLATEDSubnet1Subnet80F07FA0')],
       },
     });
 
@@ -97,10 +129,24 @@ export class CdkEdaWorkshopStack extends cdk.Stack {
       path: "/",
     });
 
-    const ecrMonolithRepo = new ecr.Repository(this, "EdaEcrRepository", {
-      repositoryName: ecrMonolithRepoName,
-    });
-    
+    console.log("ALB endpoint: ", loadBalancedFargateService.loadBalancer.loadBalancerDnsName);
+  }
+}
+
+export class EdaWSSqsStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+    // TODO SQS 추가
+    console.log("Deploy Amazon SQS to AWS Cloud");
+
+  }
+}
+
+export class EdaWSSnsStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+    // TODO SNS 추가
+    console.log("Deploy Amazon SNS to AWS Cloud");
 
   }
 }
