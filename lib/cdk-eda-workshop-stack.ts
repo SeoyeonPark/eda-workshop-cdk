@@ -1,10 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
+import * as iam from 'aws-cdk-lib/aws-iam'
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecsPatterns from "aws-cdk-lib/aws-ecs-patterns";
 import * as ecr from 'aws-cdk-lib/aws-ecr';
+import { IpAddresses } from 'aws-cdk-lib/aws-ec2';
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 
 export class EdaWSNetworkStack extends cdk.Stack {
@@ -13,10 +15,6 @@ export class EdaWSNetworkStack extends cdk.Stack {
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
-
-    console.log('Account ID: ', cdk.Stack.of(this).account);
-    console.log('Region: ', cdk.Stack.of(this).region);
-    console.log("Deploying VPC, Subnets, ECR and Database...");
 
     const cidr = '10.0.0.0/16';
 
@@ -29,7 +27,7 @@ export class EdaWSNetworkStack extends cdk.Stack {
     // VPC, Subnet, Nat Gateway, Internet Gateway, route tables
     this.vpc = new ec2.Vpc(this, 'EdaWorkshopVpc', {
       vpcName: 'vpc-eda-workshop',
-      cidr: cidr,
+      ipAddresses: IpAddresses.cidr(cidr),
       natGateways: 1,
       maxAzs: 2,
       enableDnsHostnames: true,
@@ -38,7 +36,7 @@ export class EdaWSNetworkStack extends cdk.Stack {
         {
           cidrMask: 24,
           name: 'public',
-          subnetType: ec2.SubnetType.PUBLIC
+          subnetType: ec2.SubnetType.PUBLIC,
         },
         {
           cidrMask: 24,
@@ -63,7 +61,7 @@ export class EdaWSNetworkStack extends cdk.Stack {
 
 
     const auroraCluster = new rds.DatabaseCluster(this, 'EdaSampleDB', {
-      defaultDatabaseName: 'db-eda-coffee',
+      defaultDatabaseName: 'dbEdaCoffee',
       engine: rds.DatabaseClusterEngine.auroraMysql({version: rds.AuroraMysqlEngineVersion.VER_3_02_1}),
       credentials: rds.Credentials.fromGeneratedSecret('edasample', {
         secretName: 'db-secret-eda-ws-coffee',
@@ -94,11 +92,18 @@ export class EdaWSEcsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: EdaWsEcsStackProps) {
     super(scope, id, props);
 
-    console.log('Account ID: ', cdk.Stack.of(this).account);
-    console.log('Region: ', cdk.Stack.of(this).region);
-    console.log("Deploying ECS Cluster, Task Definition, ALB...");
-
     const {vpc, repository} = props;
+
+    // IAM Policy for ECS
+    const ecsPolicy = new iam.PolicyStatement({
+      resources: ['*'],
+      actions: [
+        "secretsmanager:GetSecretValue",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+      ],
+    })
 
     // ECS Cluster, Task Definition, ALB
     const cluster = new ecs.Cluster(this, "EdaEcsCluster", {
@@ -124,12 +129,11 @@ export class EdaWSEcsStack extends cdk.Stack {
         subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
       },
     });
+    loadBalancedFargateService.taskDefinition.addToTaskRolePolicy(ecsPolicy)
 
     loadBalancedFargateService.targetGroup.configureHealthCheck({
       path: "/",
     });
-
-    console.log("ALB endpoint: ", loadBalancedFargateService.loadBalancer.loadBalancerDnsName);
   }
 }
 
@@ -137,7 +141,6 @@ export class EdaWSSqsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
     // TODO SQS 추가
-    console.log("Deploy Amazon SQS to AWS Cloud");
 
   }
 }
@@ -146,7 +149,6 @@ export class EdaWSSnsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
     // TODO SNS 추가
-    console.log("Deploy Amazon SNS to AWS Cloud");
 
   }
 }

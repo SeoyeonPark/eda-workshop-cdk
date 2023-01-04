@@ -19,35 +19,35 @@ The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
 ![Monolithic_architecture](./images/architecture_monolith.png)
 
-# Deploy stacks for workshop
-### 1. Set AWS Profile
+# Deploy workshop stacks
+## 1. Set AWS Profile
 
-### 2. Deploy VPC, Database, ECR
+_TODO_
+
+## 2. Deploy VPC, Database, ECR
 
 Deploy VPC, Database, ECR to AWS cloud.
 
 It takes about 15 minutes. Please go to step 3 while cdk deploying the resources.
 
 ```
-cdk deploy stack-1-infra
+cdk deploy stack-1-infra --require-approval never
 ```
 
-### 3. Push docker images in sample-eda-spring application sourcecode. 
+## 3. Push docker images from sample-eda-spring application sourcecode.
 
-Use cli commands in README.md of Sample Coffee Application.
+Use cli commands on README.md from [Sample Coffee Application](https://github.com/SeoyeonPark/sample-eda-spring).
 
 It takes about 3 minutes.
 
-https://github.com/SeoyeonPark/sample-eda-spring
-
-### 4. Deploy ECS Cluster, Task Definition, ALB
+## 4. Deploy ECS Cluster, Task Definition, ALB
 
 After you build docker image and push it to Amazon ECR that created in the above step, then deploy ECS stack to the AWS cloud.
 
 It takes about 5 minutes.
 
 ```
-cdk deploy stack-2-ecs
+cdk deploy stack-2-ecs --require-approval never
 ```
 
 # Clean up
@@ -57,7 +57,7 @@ cdk deploy stack-2-ecs
 cdk destroy --all
 ```
 
-2. Manually delete Amazon ECR repository. This cli also delete all images in the repository.
+2. Manually delete Amazon ECR repository. This command also delete all images in the repository.
 
 ```
 aws ecr delete-repository --force --repository-name eda-sample-coffee-app
