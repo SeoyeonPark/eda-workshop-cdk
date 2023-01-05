@@ -50,6 +50,14 @@ It takes about 5 minutes.
 cdk deploy stack-2-ecs --require-approval never
 ```
 
+# Troubleshooting
+
+When error occured during deploy cloudformation stack and rollbacked, then delete cloudformation stack and re-deploy the stack.
+
+```
+aws cloudformation delete-stack --stack-name stack-1-infra
+```
+
 # Clean up
 
 1. Delete CloudFormation stack

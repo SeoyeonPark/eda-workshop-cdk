@@ -14,6 +14,7 @@ const networkStack = new EdaWSNetworkStack(app, 'stack-1-infra', {
 new EdaWSEcsStack(app, 'stack-2-ecs', {
   vpc: networkStack.vpc,
   repository: networkStack.repository,
+  databaseCluster: networkStack.databaseCluster,
   env: { 
     account: process.env.CDK_DEFAULT_ACCOUNT, 
     region: process.env.CDK_DEFAULT_REGION
@@ -27,7 +28,7 @@ new EdaWSSqsStack(app, 'stack-sqs', {
   },
 });
 
-new EdaWSSqsStack(app, 'stack-sns', {
+new EdaWSSnsStack(app, 'stack-sns', {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT, 
     region: process.env.CDK_DEFAULT_REGION
