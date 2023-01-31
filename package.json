@@ -24,6 +24,7 @@
   "dependencies": {
     "@aws-cdk/aws-ec2": "^1.183.0",
     "aws-cdk-lib": "2.53.0",
+    "cdk": "^2.61.1",
     "constructs": "^10.0.0",
     "source-map-support": "^0.5.21"
   }
