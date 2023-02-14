@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { EdaWSNetworkStack, EdaWSEcsStack, EdaWSSqsStack, EdaWSSnsStack } from '../lib/cdk-eda-workshop-stack';
+import { EdaWSNetworkStack, EdaWSSqsStack, EdaWSSnsStack } from '../lib/stack-1-infra';
+import { EdaWSEcsStack } from '../lib/stack-2-ecs';
 
 const app = new cdk.App();
 const networkStack = new EdaWSNetworkStack(app, 'stack-1-infra', {
